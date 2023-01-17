@@ -63,3 +63,7 @@ Wait for new supplies.
 Got exactly the same behaviour when plugged in - considered that it could be because I was supplying 5V and then reading it with a 3V ADC.
 
 Swapped power to joystick to 3V and they behave much more predictably. Hopefully my ADC is not damaged.
+
+
+Pan in our app is
+left-shift + middle mouse button press + mouse move up/down left/right
