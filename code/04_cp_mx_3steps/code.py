@@ -1,11 +1,8 @@
-# Test script for Thumbstick
-# V2 renumbered to use pin 22 on the pico frame in the scanner (not the test pico on the breadboard)
-
 import time
 import board
 from digitalio import DigitalInOut, Direction, Pull
 import analogio
-
+import math
 import usb_hid
 from adafruit_hid.mouse import Mouse
 from adafruit_hid.keyboard import Keyboard
@@ -53,12 +50,12 @@ RZ = 5 # rotation Z
 #   *   up/down
 #   5
 # Reading the above number anti-clockwise 2 o'clock, 10 o'clock, 6 o'clock
-PORTS = [1,3,5,0,2,4]
+PORTS = [1,5,3,0,4,2]
 
 coeff = [
     [00.0, 00.0, 00.0, -10.0, -10.0, 20.0], # TX
     [00.0, 00.0, 00.0, -17.0,  17.0, 00.0], # TY
-    [-3.0, -3.0, -3.0,  00.0,  00.0, 00.0], # TZ (zoom)
+    [-4.0, -4.0, -4.0,  00.0,  00.0, 00.0], # TZ (zoom)
     [-6.0,  6.0, 00.0,  00.0,  00.0, 00.0], # RY
     [ 3.0,  3.0, -6.0,  00.0,  00.0, 00.0], # RX
     [00.0, 00.0, 00.0,  03.0,  03.0, 03.0]  # RZ (not used)
@@ -73,15 +70,26 @@ sw = 0
 # 9 channels of 10-bit ADC
 
 def move(x, y, w):
-    x = deaden(x)
-    y = deaden(y)
-    w = deaden(w)
-    mouse.move(x, y, w)
+    global sx
+    global sy
+    global sw
+    x = int(math.floor(x))
+    y = int(math.floor(y))
+    w = int(math.floor(w))
+    #x = deaden(x)
+    #y = deaden(y)
+    #w = deaden(w)
+    #print("Moving {}/{}/{}".format(x,y,w))
     sx = sx + x
     sy = sy + y
     sw = sw + w
+    mouse.move(x, y, w)
+    
 
 def resetMove():
+    global sx
+    global sy
+    global sw
     mouse.move(-sx, -sy, -sw)
     sx=0
     sy=0
@@ -101,49 +109,49 @@ def switchMX(cValue):
         s2.value = False
         s1.value = False
         s0.value = False
-    if cValue == 1:
+    elif cValue == 1:
         # 0001
         s3.value = False
         s2.value = False
         s1.value = False
         s0.value = True
-    if cValue == 2:
+    elif cValue == 2:
         # 0010
         s3.value = False
         s2.value = False
         s1.value = True
         s0.value = False
-    if cValue == 3:
+    elif cValue == 3:
         # 0011
         s3.value = False
         s2.value = False
         s1.value = True
         s0.value = True
-    if cValue == 4:
+    elif cValue == 4:
         # 0100
         s3.value = False
         s2.value = True
         s1.value = False
         s0.value = False
-    if cValue == 5:
+    elif cValue == 5:
         # 0101
         s3.value = False
         s2.value = True
         s1.value = False
         s0.value = True
-    if cValue == 6:
+    elif cValue == 6:
         # 0110
         s3.value = False
         s2.value = True
         s1.value = True
         s0.value = False
-    if cValue == 7:
+    elif cValue == 7:
         # 0111
         s3.value = False
         s2.value = True
         s1.value = True
         s0.value = True
-    if cValue == 8:
+    elif cValue == 8:
         # 1000
         s3.value = True
         s2.value = False
@@ -170,6 +178,28 @@ def readMux(cValue):
     switchMX(cValue)
     return adc.value
 
+def mapValue(val,midVal):
+    # assuming max of 64000
+    # assuming min of 0
+    # midVal is given
+    # return values are -3, -2, -1, 0, 1, 2 or 3
+    lowBox = (midVal / 10.0)
+    if val < 3*lowBox:
+        return -3
+    if val < 6*lowBox:
+        return -2
+    if val < 9*lowBox:
+        return -1
+    if val < 10*lowBox:
+        return 0
+    highBox = (65536-midVal) / 10.0
+    if val < midVal + (1 * highBox):
+        return 0
+    if val < midVal + (4 * highBox):
+        return 1
+    if val < midVal + (7 * highBox):
+        return 2
+    return 3
 
 def deaden(val):
     if val > DEAD_THRESH:
@@ -199,22 +229,28 @@ def setup():
 
 # I though the original values were -128 - 127 (256) and mine were -32000 - +32000
 # The original values were -512 - + 512
-DEAD_THRESH = 6    # original value was 1
-SPEED_PARAM = 3600 # original value was 600
+DEAD_THRESH = 1    # original value was 1
+SPEED_PARAM = 5 # original value was 600
 
 setup()
 
-def isTranslate(mv):
+def isRotate(mv):
     return abs(mv[RX]) > DEAD_THRESH or abs(mv[RY]) > DEAD_THRESH 
+
+
+def isTranslate(mv):
+    return abs(mv[TX]) > DEAD_THRESH or abs(mv[TY]) > DEAD_THRESH 
+
+def isZoom(mv):
+    return abs(mv[TZ]) > DEAD_THRESH
 
 def printSV(sv):
     #print("RX/RY : {},{}".format(mv[RX],mv[RY]))
     print("sv: {}".format(sv))
 
-
 def printMV(mv):
     print("TX/TY : {},{}".format(mv[TX],mv[TY]))
-    #print("TZ : {}".format(mv[TZ]))
+    print("TZ : {}".format(mv[TZ]))
     #print("RX/RY : {},{}".format(mv[RX],mv[RY]))
 
 while True:
@@ -223,10 +259,11 @@ while True:
     mv = [] # motion vector
 
     for p in range(DOF):
-        sv.append(readMux(PORTS[p])-origin[p])
+        #sv.append(readMux(PORTS[p])-origin[p])
+        sv.append(mapValue(readMux(PORTS[p]),origin[p]))
 
     # origins are around 30,000
-    printSV(sv)
+    #printSV(sv)
     # SVs are +/-1500
     
     # The max difference for zoom is 3x the difference from average
@@ -238,24 +275,32 @@ while True:
         for j in range(DOF):
             mv[i] = mv[i] + (coeff[i][j] * sv[j])
         mv[i] = mv[i] / SPEED_PARAM
-        #mv[i] = clamp(mv[i])
+        mv[i] = clamp(mv[i])
 
     #printSV(sv)
-    printMV(mv)
-    time.sleep(1.25)
-    #if isTranslate(mv):
-    #    print("Translate....")
-
-    #print("d0x:{:06} d0y:{:06} d1x:{:06} d1y:{:06} d2x:{:06} d2y:{:06}".format(readMux(0),readMux(1),readMux(2),readMux(3),readMux(4),readMux(5)))
-
-    if isSwitch0():
-        print("Switch 0 pressed")
-        #https://docs.circuitpython.org/projects/hid/en/latest/api.html
+    #printMV(mv)
+    #time.sleep(1.25)
+    
+    if isRotate(mv):
+        #print("Rotate RX/RY : {},{}".format(mv[RX],mv[RY]))
+        mouse.press(Mouse.MIDDLE_BUTTON)
+        move(mv[RX],mv[RY],0)
+        #time.sleep(.05)
+        mouse.release(Mouse.MIDDLE_BUTTON)
+        resetMove()
+        
+    if isTranslate(mv):
+        #print("Translating TX/TY : {},{}".format(mv[TX],mv[TY]))
         keyboard.press(Keycode.LEFT_SHIFT)
         mouse.press(Mouse.MIDDLE_BUTTON)
-        mouse.move(-100, 0, 0)
-        time.sleep(.09)
+        move(mv[TX],mv[TY],0)
+        #time.sleep(.05)
         mouse.release(Mouse.MIDDLE_BUTTON)
         keyboard.release(Keycode.LEFT_SHIFT)
-        mouse.move(100, 0, 0)
-        time.sleep(0.25)
+        resetMove()
+
+    if isZoom(mv):
+        #print("Zoom TZ: {}".format(mv[TZ]))
+        move(0,0,mv[TZ])
+        #time.sleep(0.05)
+        resetMove()

@@ -67,3 +67,5 @@ Swapped power to joystick to 3V and they behave much more predictably. Hopefully
 
 Pan in our app is
 left-shift + middle mouse button press + mouse move up/down left/right
+
+![Alt text](./readme_img/Raspberry-Pi-Pico-pinout-diagram.svg)
