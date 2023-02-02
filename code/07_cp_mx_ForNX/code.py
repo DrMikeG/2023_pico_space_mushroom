@@ -7,7 +7,9 @@ import usb_hid
 from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.keycode import Keycode
+from adafruit_hid.mouse import Mouse
 
+mouse = Mouse(usb_hid.devices)
 keyboard = Keyboard(usb_hid.devices)
 keyboard_layout = KeyboardLayoutUS(keyboard)  # We're in the US :)
 
@@ -53,16 +55,13 @@ PORTS = [1,5,3,0,4,2]
 coeff = [
     [00.0, 00.0, 00.0, -10.0, -10.0, 20.0], # TX
     [00.0, 00.0, 00.0, -17.0,  17.0, 00.0], # TY
-    [-4.0, -4.0, -4.0,  00.0,  00.0, 00.0], # TZ (zoom)
+    [-2.0, -2.0, -2.0,  00.0,  00.0, 00.0], # TZ (zoom)
     [-6.0,  6.0, 00.0,  00.0,  00.0, 00.0], # RY
     [ 3.0,  3.0, -6.0,  00.0,  00.0, 00.0], # RX
     [00.0, 00.0, 00.0,  03.0,  03.0, 03.0]  # RZ (not used)
 ]
 
 origin = []
-sx = 0
-sy = 0
-sw = 0
 
 # The analog reading on the pin. Although it is limited to the resolution of the analog to digital converter (0-1023 for 10 bits or 0-4095 for 12 bits). Data type: int.
 # 9 channels of 10-bit ADC
@@ -201,10 +200,30 @@ def setup():
 
 # I though the original values were -128 - 127 (256) and mine were -32000 - +32000
 # The original values were -512 - + 512
-DEAD_THRESH = 1    # original value was 1
+DEAD_THRESH = 2    # original value was 1
 SPEED_PARAM = 5 # original value was 600
 
-setup()
+# Have we started a movement?
+isMouseMoving = False
+# This will cause the mouse position to reset
+shouldEndMove = False
+
+
+def move(x, y, w, sx, sy, sw):
+    factor = 2
+    int_x = int(math.floor(factor*x))
+    int_y = int(math.floor(factor*y))
+    int_w = int(math.floor(factor*w))
+    sx = sx + int_x
+    sy = sy + int_y
+    sw = sw + int_w
+    mouse.move(int_x, int_y, int_w)
+
+    return sx, sy, sw
+
+def resetMove(sx,sy,sw):
+    mouse.move(-sx, -sy, 0)
+    return 0,0,0
 
 def isRotate(mv):
     return abs(mv[RX]) > DEAD_THRESH or abs(mv[RY]) > DEAD_THRESH 
@@ -225,85 +244,73 @@ def printMV(mv):
     print("TZ : {}".format(mv[TZ]))
     #print("RX/RY : {},{}".format(mv[RX],mv[RY]))
 
-while True:
+setup()
 
-    keyboard.release_all()
+
+sx = 0
+sy = 0
+sw = 0
+
+while True:
 
     sv = [] # sensor values
     mv = [] # motion vector
 
+    # Values are read and simply mapped -3 to +3
     for p in range(DOF):
-        #sv.append(readMux(PORTS[p])-origin[p])
         sv.append(mapValue(readMux(PORTS[p]),origin[p]))
-
-    # origins are around 30,000
-    #printSV(sv)
-    # SVs are +/-1500
-    
-    # The max difference for zoom is 3x the difference from average
-    # 32000 * 3 * 3 = 288,000
-    # / 600 = 160
 
     for i in range(DOF):
         mv.append(0.0)
         for j in range(DOF):
             mv[i] = mv[i] + (coeff[i][j] * sv[j])
         mv[i] = mv[i] / SPEED_PARAM
-        mv[i] = clamp(mv[i])
+        # I doubt this is having any effect
 
-    #printSV(sv)
-    #printMV(mv)
-    #time.sleep(1.25)
+    movementDetected = isRotate(mv) or isTranslate(mv) or isZoom(mv)
     
-    isSE = True
+    if movementDetected:
+        if not isMouseMoving: # if we were not moving, we now are
+            isMouseMoving = True
+            print("Starting movement...")
+            # Start move (Init mouse? Press Key?)
+            mouse.press(Mouse.MIDDLE_BUTTON)
+    else:
+        if isMouseMoving: # if we were moving, now we are not, and we should end
+            isMouseMoving = False
+            shouldEndMove = True
 
-    if isRotate(mv):
-        #print("Rotate RX/RY : {},{}".format(mv[RX],mv[RY]))
-            # App key press to rotate is arrow keys
-            # SE key press to rotate is arrow keys
-            if mv[RX] > 0:
-                keyboard.send(Keycode.RIGHT_ARROW)
-            elif mv[RX] < 0:             
-                keyboard.send(Keycode.LEFT_ARROW)
-            if mv[RY] > 0:
-                keyboard.send(Keycode.DOWN_ARROW)
-            elif mv[RY] < 0:             
-                keyboard.send(Keycode.UP_ARROW)
-        
-    if isTranslate(mv):
-        print("Translating TX/TY : {},{}".format(mv[TX],mv[TY]))
-        if isSE:
+    if isMouseMoving:
+        if isRotate(mv):
+            print("Rotate RX/RY : {},{}".format(mv[RX],mv[RY]))
+            # No keys pressed
+            sx,sy,sw = move(mv[RX],mv[RY],0,sx,sy,sw)
+            time.sleep(0.1)
+            
+        if isTranslate(mv):
+            print("Translating TX/TY : {},{}".format(mv[TX],mv[TY]))
+            keyboard.press(Keycode.LEFT_SHIFT)
+            sx,sy,sw = move(mv[TX],mv[TY],0,sx,sy,sw)
+            time.sleep(0.1)
             keyboard.release(Keycode.LEFT_SHIFT)
-            keyboard.press(Keycode.LEFT_CONTROL)
-            if mv[TX] > 0:
-                keyboard.press(Keycode.RIGHT_ARROW)
-            elif mv[TX] < 0:             
-                keyboard.press(Keycode.LEFT_ARROW)
-            if mv[TY] > 0:
-                keyboard.press(Keycode.DOWN_ARROW)
-            elif mv[TY] < 0:             
-                keyboard.press(Keycode.UP_ARROW)    
-            keyboard.release_all()
-        else:
-            if mv[TX] > 0:
-                keyboard.press(Keycode.LEFT_SHIFT, Keycode.RIGHT_ARROW)
-            elif mv[TX] < 0:             
-                keyboard.press(Keycode.LEFT_SHIFT, Keycode.LEFT_ARROW)
-            if mv[TY] > 0:
-                keyboard.press(Keycode.LEFT_SHIFT, Keycode.DOWN_ARROW)
-            elif mv[TY] < 0:             
-                keyboard.press(Keycode.LEFT_SHIFT, Keycode.UP_ARROW)
 
-    if isZoom(mv):
-        print("Zoom TZ: {}".format(mv[TZ]))
-        if isSE:
-            if mv[TZ] > 0:
-                keyboard.send(Keycode.RIGHT_CONTROL,Keycode.UP_ARROW)
-            elif mv[TZ] < 0:             
-                keyboard.press(Keycode.RIGHT_CONTROL,Keycode.LEFT_ARROW)
-        else:
-            if mv[TZ] > 0:
-                keyboard.press(Keycode.PAGE_UP)
-            elif mv[TZ] < 0:             
-                keyboard.press(Keycode.PAGE_DOWN)
-    
+        if isZoom(mv):
+            print("Zoom TZ: {}".format(mv[TZ]))
+            keyboard.press(Keycode.LEFT_CONTROL)
+            time.sleep(0.05)
+            sx,sy,sw = move(0,mv[TZ],0,sx,sy,sw)
+            time.sleep(0.05)
+            keyboard.release(Keycode.LEFT_CONTROL)
+
+    if shouldEndMove:
+        print("Ending movement...")
+        mouse.release(Mouse.MIDDLE_BUTTON)        
+        time.sleep(0.1)
+        keyboard.release_all()
+        time.sleep(0.1)
+        #sx,sy,sw = resetMove(sx,sy,sw)
+        sx = 0
+        sy = 0
+        sw = 0
+        shouldEndMove = False        
+

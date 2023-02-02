@@ -225,85 +225,97 @@ def printMV(mv):
     print("TZ : {}".format(mv[TZ]))
     #print("RX/RY : {},{}".format(mv[RX],mv[RY]))
 
-while True:
 
-    keyboard.release_all()
+# Have we started a movement?
+isMouseMoving = False
+# This will cause the mouse position to reset
+shouldEndMove = False
+
+while True:
 
     sv = [] # sensor values
     mv = [] # motion vector
 
+    # Values are read and simply mapped -3 to +3
     for p in range(DOF):
-        #sv.append(readMux(PORTS[p])-origin[p])
         sv.append(mapValue(readMux(PORTS[p]),origin[p]))
-
-    # origins are around 30,000
-    #printSV(sv)
-    # SVs are +/-1500
-    
-    # The max difference for zoom is 3x the difference from average
-    # 32000 * 3 * 3 = 288,000
-    # / 600 = 160
 
     for i in range(DOF):
         mv.append(0.0)
         for j in range(DOF):
             mv[i] = mv[i] + (coeff[i][j] * sv[j])
         mv[i] = mv[i] / SPEED_PARAM
-        mv[i] = clamp(mv[i])
+        # I doubt this is having any effect
 
-    #printSV(sv)
-    #printMV(mv)
-    #time.sleep(1.25)
+    movementDetected = isRotate(mv) or isTranslate(mv) or isZoom(mv)
     
-    isSE = True
+    if movementDetected:
+        if not isMouseMoving: # if we were not moving, we now are
+            isMouseMoving = True
+            print("Starting movement...")
+            # Start move (Init mouse? Press Key?)
+    else:
+        if isMouseMoving: # if we were moving, now we are not, and we should end
+            isMouseMoving = False
+            shouldEndMove = True
 
-    if isRotate(mv):
-        #print("Rotate RX/RY : {},{}".format(mv[RX],mv[RY]))
-            # App key press to rotate is arrow keys
-            # SE key press to rotate is arrow keys
-            if mv[RX] > 0:
-                keyboard.send(Keycode.RIGHT_ARROW)
-            elif mv[RX] < 0:             
-                keyboard.send(Keycode.LEFT_ARROW)
-            if mv[RY] > 0:
-                keyboard.send(Keycode.DOWN_ARROW)
-            elif mv[RY] < 0:             
-                keyboard.send(Keycode.UP_ARROW)
-        
-    if isTranslate(mv):
-        print("Translating TX/TY : {},{}".format(mv[TX],mv[TY]))
-        if isSE:
-            keyboard.release(Keycode.LEFT_SHIFT)
-            keyboard.press(Keycode.LEFT_CONTROL)
-            if mv[TX] > 0:
-                keyboard.press(Keycode.RIGHT_ARROW)
-            elif mv[TX] < 0:             
-                keyboard.press(Keycode.LEFT_ARROW)
-            if mv[TY] > 0:
-                keyboard.press(Keycode.DOWN_ARROW)
-            elif mv[TY] < 0:             
-                keyboard.press(Keycode.UP_ARROW)    
-            keyboard.release_all()
-        else:
-            if mv[TX] > 0:
-                keyboard.press(Keycode.LEFT_SHIFT, Keycode.RIGHT_ARROW)
-            elif mv[TX] < 0:             
-                keyboard.press(Keycode.LEFT_SHIFT, Keycode.LEFT_ARROW)
-            if mv[TY] > 0:
-                keyboard.press(Keycode.LEFT_SHIFT, Keycode.DOWN_ARROW)
-            elif mv[TY] < 0:             
-                keyboard.press(Keycode.LEFT_SHIFT, Keycode.UP_ARROW)
+    # Do the app for now...
+    isSE = False
 
-    if isZoom(mv):
-        print("Zoom TZ: {}".format(mv[TZ]))
-        if isSE:
-            if mv[TZ] > 0:
-                keyboard.send(Keycode.RIGHT_CONTROL,Keycode.UP_ARROW)
-            elif mv[TZ] < 0:             
-                keyboard.press(Keycode.RIGHT_CONTROL,Keycode.LEFT_ARROW)
-        else:
-            if mv[TZ] > 0:
-                keyboard.press(Keycode.PAGE_UP)
-            elif mv[TZ] < 0:             
-                keyboard.press(Keycode.PAGE_DOWN)
+    if isMouseMoving:
+        if isRotate(mv):
+            #print("Rotate RX/RY : {},{}".format(mv[RX],mv[RY]))
+                # App key press to rotate is arrow keys
+                # SE key press to rotate is arrow keys
+                if mv[RX] > 0:
+                    keyboard.send(Keycode.RIGHT_ARROW)
+                elif mv[RX] < 0:             
+                    keyboard.send(Keycode.LEFT_ARROW)
+                if mv[RY] > 0:
+                    keyboard.send(Keycode.DOWN_ARROW)
+                elif mv[RY] < 0:             
+                    keyboard.send(Keycode.UP_ARROW)
+            
+        if isTranslate(mv):
+            print("Translating TX/TY : {},{}".format(mv[TX],mv[TY]))
+            if isSE:
+                keyboard.release(Keycode.LEFT_SHIFT)
+                keyboard.press(Keycode.LEFT_CONTROL)
+                if mv[TX] > 0:
+                    keyboard.press(Keycode.RIGHT_ARROW)
+                elif mv[TX] < 0:             
+                    keyboard.press(Keycode.LEFT_ARROW)
+                if mv[TY] > 0:
+                    keyboard.press(Keycode.DOWN_ARROW)
+                elif mv[TY] < 0:             
+                    keyboard.press(Keycode.UP_ARROW)    
+                keyboard.release_all()
+            else:
+                if mv[TX] > 0:
+                    keyboard.press(Keycode.LEFT_SHIFT, Keycode.RIGHT_ARROW)
+                elif mv[TX] < 0:             
+                    keyboard.press(Keycode.LEFT_SHIFT, Keycode.LEFT_ARROW)
+                if mv[TY] > 0:
+                    keyboard.press(Keycode.LEFT_SHIFT, Keycode.DOWN_ARROW)
+                elif mv[TY] < 0:             
+                    keyboard.press(Keycode.LEFT_SHIFT, Keycode.UP_ARROW)
+
+        if isZoom(mv):
+            print("Zoom TZ: {}".format(mv[TZ]))
+            if isSE:
+                if mv[TZ] > 0:
+                    keyboard.send(Keycode.RIGHT_CONTROL,Keycode.UP_ARROW)
+                elif mv[TZ] < 0:             
+                    keyboard.press(Keycode.RIGHT_CONTROL,Keycode.LEFT_ARROW)
+            else:
+                if mv[TZ] > 0:
+                    keyboard.press(Keycode.PAGE_UP)
+                elif mv[TZ] < 0:             
+                    keyboard.press(Keycode.PAGE_DOWN)
     
+    if shouldEndMove:
+        keyboard.release_all()
+        print("Ending movement...")
+        time.sleep(0.1)
+        shouldEndMove = False
+
