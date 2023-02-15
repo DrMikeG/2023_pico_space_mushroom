@@ -1,0 +1,37 @@
+Solid Edge Translation To 3MF
+Date: Monday,February 06,2023 09:21AM
+Output File: C:\Users\gibbens\Documents\Arduino\2023\2023_pico_space_mushroom\parts\Mounting_ProtoLayer00_02.3mf
+Author: Unknown
+Organization: Unknown
+Source System: SOLID EDGE
+
+Hardware:
+Processor: Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz
+Operating System: Windows 10 Enterprise Edition
+Installed Memory: 31.8 GB
+
+Software Information:
+Parasolid Version: 35.0.224
+PSBodyshop Version: 35.0.85
+3MF Adapter Version:11.0.133
+Solid Edge Version: 224.00.00.028 x64
+
+3MF Export Options
+Export Construction Solids:Off
+Export Displayed Parts:Off
+Enable Logging:On
+AllowInvalid3mfObjects:Off
+Export Flatten Assembly:On
+Export Units:Millimeters
+Export Tolerance Value:0.001000
+Export Tolerance Type:Fine
+Export Surface Plane Angle Value:0.523599
+Export Author:Unknown
+Export Description:Unknown
+Export Organization:Unknown
+Export Program Name:Unknown
+
+Translation progress:
+Phase 1 of 1 Translating Parasolid to foreign data types...
+Translation process completed
+Time required to translate:00 : 00 : 00
