@@ -60,7 +60,9 @@ RZ = 5 # rotation Z
 #   *   up/down
 #   5
 # Reading the above number anti-clockwise 2 o'clock, 10 o'clock, 6 o'clock
-PORTS = [1,5,3,0,4,2]
+#PORTS = [1,5,3,0,4,2]
+PORTS = [0,0,0,0,0,0]
+
 
 coeff = [
     [00.0, 00.0, 00.0, -10.0, -10.0, 20.0], # TX
@@ -164,7 +166,10 @@ def isSwitch2():
     return adc.value < 500
 
 def isSwitch():
-    return isSwitch0() or isSwitch1() or isSwitch2()
+    if isSwitch0() or isSwitch1() or isSwitch2():
+        print("Switch")
+    #return isSwitch0() or isSwitch1() or isSwitch2()
+    return False
 
 def readMux(cValue):
     switchMX(cValue)
@@ -206,8 +211,6 @@ def mapValueScaled(val,midVal):
 def deaden(val):
     if val > DEAD_THRESH:
         val = val - DEAD_THRESH
-    elif val < DEAD_THRESH:
-        val = val + DEAD_THRESH
     else:
         val = 0
     return val
@@ -231,16 +234,16 @@ def setup():
 
 # I though the original values were -128 - 127 (256) and mine were -32000 - +32000
 # The original values were -512 - + 512
-DEAD_THRESH = 2    # original value was 1
+DEAD_THRESH = 3    # original value was 1
 SPEED_PARAM = 5 # original value was 600
 
 
 
 def move(x, y, w, sx, sy, sw):
     factor = 2
-    int_x = int(math.trunc(factor*x))
-    int_y = int(math.trunc(factor*y))
-    int_w = int(math.trunc(factor*w))
+    int_x = int(math.floor(factor*x))
+    int_y = int(math.floor(factor*y))
+    int_w = int(math.floor(factor*w))
     sx = sx + int_x
     sy = sy + int_y
     sw = sw + int_w
@@ -296,6 +299,32 @@ def mode0Loop():
         # Values are read and simply mapped -3 to +3
         for p in range(DOF):
             sv.append(mapValueScaled(readMux(PORTS[p]),origin[p]))
+        #printSV(sv)
+        time.sleep(0.25)
+
+        # 4   0
+        #   *    left/right
+        #   2
+        #
+        # 5   1
+        #   *   up/down
+        #   3
+        # Reading the above number anti-clockwise 2 o'clock, 10 o'clock, 6 o'clock
+        #PORTS = [1,5,3,0,4,2]
+
+        if abs(sv[0]) > 0.1:
+            print("Up/Down Joystick 1 active at {}".format(sv[0]))
+        if abs(sv[1]) > 0.1:
+            print("Up/Down Joystick 2 active at {}".format(sv[1]))
+        if abs(sv[2]) > 0.1:
+            print("Up/Down Joystick 3 active at {}".format(sv[2]))
+
+        if abs(sv[3]) > 0.1:
+            print("Left/Right Joystick 1 active at {}".format(sv[3]))
+        if abs(sv[4]) > 0.1:
+            print("Left/Right Joystick 2 active at {}".format(sv[4]))
+        if abs(sv[5]) > 0.1:
+            print("Left/Right Joystick 3 active at {}".format(sv[5]))
 
         for i in range(DOF):
             mv.append(0.0)
@@ -303,14 +332,15 @@ def mode0Loop():
                 mv[i] = mv[i] + (coeff[i][j] * sv[j])
             mv[i] = mv[i] / SPEED_PARAM
 
-        movementDetected = isRotate(mv) or isTranslate(mv) or isZoom(mv)
+        #movementDetected = isRotate(mv) or isTranslate(mv) or isZoom(mv)
+        movementDetected = False
         
         if movementDetected:
             if not isMouseMoving: # if we were not moving, we now are
                 isMouseMoving = True
                 print("Starting movement...")
                 # Start move (Init mouse? Press Key?)
-                mouse.press(Mouse.MIDDLE_BUTTON)
+                #mouse.press(Mouse.MIDDLE_BUTTON)
         else:
             if isMouseMoving: # if we were moving, now we are not, and we should end
                 isMouseMoving = False
@@ -320,31 +350,31 @@ def mode0Loop():
             if isRotate(mv):
                 print("Rotate RX/RY : {},{}".format(mv[RX],mv[RY]))
                 # No keys pressed
-                sx,sy,sw = move(mv[RX],mv[RY],0,sx,sy,sw)
+                #sx,sy,sw = move(mv[RX],mv[RY],0,sx,sy,sw)
                 time.sleep(0.1)
                 
             if isTranslate(mv):
                 print("Translating TX/TY : {},{}".format(mv[TX],mv[TY]))
-                keyboard.press(Keycode.LEFT_SHIFT)
-                sx,sy,sw = move(mv[TX],mv[TY],0,sx,sy,sw)
+                #keyboard.press(Keycode.LEFT_SHIFT)
+                #sx,sy,sw = move(mv[TX],mv[TY],0,sx,sy,sw)
                 time.sleep(0.1)
-                keyboard.release(Keycode.LEFT_SHIFT)
+                #keyboard.release(Keycode.LEFT_SHIFT)
 
             if isZoom(mv):
                 print("Zoom TZ: {}".format(mv[TZ]))
-                keyboard.press(Keycode.LEFT_CONTROL)
+                #keyboard.press(Keycode.LEFT_CONTROL)
                 time.sleep(0.05)
-                sx,sy,sw = move(0,mv[TZ],0,sx,sy,sw)
+                #sx,sy,sw = move(0,mv[TZ],0,sx,sy,sw)
                 time.sleep(0.05)
-                keyboard.release(Keycode.LEFT_CONTROL)
+                #keyboard.release(Keycode.LEFT_CONTROL)
 
         if shouldEndMove:
             print("Ending movement...")
-            mouse.release(Mouse.MIDDLE_BUTTON)        
+            #mouse.release(Mouse.MIDDLE_BUTTON)        
             time.sleep(0.1)
-            keyboard.release_all()
+            #keyboard.release_all()
             time.sleep(0.1)
-            sx,sy,sw = resetMove(sx,sy,sw)
+            #sx,sy,sw = resetMove(sx,sy,sw)
             sx = 0
             sy = 0
             sw = 0
@@ -430,7 +460,7 @@ def mode1Loop():
             time.sleep(0.1)
             keyboard.release_all()
             time.sleep(0.1)
-            sx,sy,sw = resetMove(sx,sy,sw)
+            #sx,sy,sw = resetMove(sx,sy,sw)
             sx = 0
             sy = 0
             sw = 0
@@ -448,14 +478,7 @@ activeMode = 0
 try:
 
     while True:
-
-        if activeMode == 0:
-            mode0Loop()
-        if activeMode == 1:
-            mode1Loop()
-
-        if activeMode > 1:
-            activeMode = 0
+        mode0Loop()
     
 except:
     keyboard.release_all()

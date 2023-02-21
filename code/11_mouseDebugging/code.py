@@ -238,9 +238,9 @@ SPEED_PARAM = 5 # original value was 600
 
 def move(x, y, w, sx, sy, sw):
     factor = 2
-    int_x = int(math.trunc(factor*x))
-    int_y = int(math.trunc(factor*y))
-    int_w = int(math.trunc(factor*w))
+    int_x = int(math.floor(factor*x))
+    int_y = int(math.floor(factor*y))
+    int_w = int(math.floor(factor*w))
     sx = sx + int_x
     sy = sy + int_y
     sw = sw + int_w
@@ -305,7 +305,10 @@ def mode0Loop():
 
         movementDetected = isRotate(mv) or isTranslate(mv) or isZoom(mv)
         
+        
+
         if movementDetected:
+            print(mv)
             if not isMouseMoving: # if we were not moving, we now are
                 isMouseMoving = True
                 print("Starting movement...")
@@ -344,7 +347,7 @@ def mode0Loop():
             time.sleep(0.1)
             keyboard.release_all()
             time.sleep(0.1)
-            sx,sy,sw = resetMove(sx,sy,sw)
+            #sx,sy,sw = resetMove(sx,sy,sw)
             sx = 0
             sy = 0
             sw = 0
@@ -430,7 +433,7 @@ def mode1Loop():
             time.sleep(0.1)
             keyboard.release_all()
             time.sleep(0.1)
-            sx,sy,sw = resetMove(sx,sy,sw)
+            #sx,sy,sw = resetMove(sx,sy,sw)
             sx = 0
             sy = 0
             sw = 0

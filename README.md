@@ -69,3 +69,23 @@ Pan in our app is
 left-shift + middle mouse button press + mouse move up/down left/right
 
 ![Alt text](./readme_img/Raspberry-Pi-Pico-pinout-diagram.svg)
+
+
+## Joystick failure ## 
+
+I had a burnt out joystick module. The joystick was registering 3v3 on both axis all the time. Swapped it out.
+
+## Mouse acceleration ##
+
+Using 10_ and 11_ I figured out what I couldn't get the mouse to return the starting position.
+
+Windows takes the instruction (10,24) and applies an acceleration factor so who knows what it might move by.
+
+So, no hope of making it return to the starting position.
+
+I did however learn the polling him for the USD HID is only 8ms - so I can probably reduce my delays quite a lot.
+
+I also fixed a bug in deaden and using ceiling for negative numbers.
+
+Now working on 12_
+

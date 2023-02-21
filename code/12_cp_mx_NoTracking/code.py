@@ -46,19 +46,19 @@ RX = 3 # rotation X
 RY = 4 # rotation Y
 RZ = 5 # rotation Z
 
-# [2,3]       [0,1]
+# [4,5]       [0,1]
 #      \     /
 #       \   /
 #         |
 #         |
-#       [4,5]
-# 2   0
+#       [2,3]
+# 4   0
 #   *    left/right
-#   4
+#   2
 #
-# 3   1
+# 5   1
 #   *   up/down
-#   5
+#   3
 # Reading the above number anti-clockwise 2 o'clock, 10 o'clock, 6 o'clock
 PORTS = [1,5,3,0,4,2]
 
@@ -170,29 +170,6 @@ def readMux(cValue):
     switchMX(cValue)
     return adc.value
 
-def mapValue(val,midVal):
-    # assuming max of 64000
-    # assuming min of 0
-    # midVal is given
-    # return values are -3, -2, -1, 0, 1, 2 or 3
-    lowBox = (midVal / 10.0)
-    if val < 3*lowBox:
-        return -3
-    if val < 6*lowBox:
-        return -2
-    if val < 9*lowBox:
-        return -1
-    if val < 10*lowBox:
-        return 0
-    highBox = (65536-midVal) / 10.0
-    if val < midVal + (1 * highBox):
-        return 0
-    if val < midVal + (4 * highBox):
-        return 1
-    if val < midVal + (7 * highBox):
-        return 2
-    return 3
-
 def mapValueScaled(val,midVal):
     # assuming max of 65536
     # assuming min of 0
@@ -201,16 +178,6 @@ def mapValueScaled(val,midVal):
         return -3.0 * (1.0-(val / midVal))
     else:
         return 3.0 * (val - midVal) / (65536-midVal)
-
-
-def deaden(val):
-    if val > DEAD_THRESH:
-        val = val - DEAD_THRESH
-    elif val < DEAD_THRESH:
-        val = val + DEAD_THRESH
-    else:
-        val = 0
-    return val
 
 def clamp(val):
     if val > 127:
@@ -234,27 +201,15 @@ def setup():
 DEAD_THRESH = 2    # original value was 1
 SPEED_PARAM = 5 # original value was 600
 
-
-
-def move(x, y, w, sx, sy, sw):
+def move(x, y, w):
     factor = 2
     int_x = int(math.trunc(factor*x))
     int_y = int(math.trunc(factor*y))
     int_w = int(math.trunc(factor*w))
-    sx = sx + int_x
-    sy = sy + int_y
-    sw = sw + int_w
     mouse.move(int_x, int_y, int_w)
-
-    return sx, sy, sw
-
-def resetMove(sx,sy,sw):
-    mouse.move(-sx, -sy, 0)
-    return 0,0,0
 
 def isRotate(mv):
     return abs(mv[RX]) > DEAD_THRESH or abs(mv[RY]) > DEAD_THRESH 
-
 
 def isTranslate(mv):
     return abs(mv[TX]) > DEAD_THRESH or abs(mv[TY]) > DEAD_THRESH 
@@ -262,21 +217,8 @@ def isTranslate(mv):
 def isZoom(mv):
     return abs(mv[TZ]) > DEAD_THRESH
 
-def printSV(sv):
-    #print("RX/RY : {},{}".format(mv[RX],mv[RY]))
-    print("sv: {}".format(sv))
-
-def printMV(mv):
-    print("TX/TY : {},{}".format(mv[TX],mv[TY]))
-    print("TZ : {}".format(mv[TZ]))
-    #print("RX/RY : {},{}".format(mv[RX],mv[RY]))
-
-
 def mode0Loop():
     global activeMode
-    sx = 0
-    sy = 0
-    sw = 0
 
     activeMode = 0
     # Have we started a movement?
@@ -320,48 +262,42 @@ def mode0Loop():
             if isRotate(mv):
                 print("Rotate RX/RY : {},{}".format(mv[RX],mv[RY]))
                 # No keys pressed
-                sx,sy,sw = move(mv[RX],mv[RY],0,sx,sy,sw)
-                time.sleep(0.1)
+                move(mv[RX],mv[RY],0)
+                time.sleep(0.05)
                 
             if isTranslate(mv):
                 print("Translating TX/TY : {},{}".format(mv[TX],mv[TY]))
                 keyboard.press(Keycode.LEFT_SHIFT)
-                sx,sy,sw = move(mv[TX],mv[TY],0,sx,sy,sw)
-                time.sleep(0.1)
+                time.sleep(0.05)
+                move(mv[TX],mv[TY],0)
+                time.sleep(0.05)
                 keyboard.release(Keycode.LEFT_SHIFT)
 
             if isZoom(mv):
                 print("Zoom TZ: {}".format(mv[TZ]))
                 keyboard.press(Keycode.LEFT_CONTROL)
                 time.sleep(0.05)
-                sx,sy,sw = move(0,mv[TZ],0,sx,sy,sw)
+                move(0,mv[TZ],0)
                 time.sleep(0.05)
                 keyboard.release(Keycode.LEFT_CONTROL)
 
         if shouldEndMove:
             print("Ending movement...")
             mouse.release(Mouse.MIDDLE_BUTTON)        
-            time.sleep(0.1)
+            time.sleep(0.05)
             keyboard.release_all()
-            time.sleep(0.1)
-            sx,sy,sw = resetMove(sx,sy,sw)
-            sx = 0
-            sy = 0
-            sw = 0
+            time.sleep(0.05)
             shouldEndMove = False     
 
-        if isSwitch():
+        if isSwitch1():
             activeMode = activeMode + 1
-            time.sleep(0.24)
+            time.sleep(0.25)
             return
 
 
 def mode1Loop():
     global activeMode
-    sx = 0
-    sy = 0
-    sw = 0
-
+    
     activeMode = 1
     # Have we started a movement?
     isMouseMoving = False
@@ -406,39 +342,36 @@ def mode1Loop():
             if isRotate(mv):
                 print("Rotate RX/RY : {},{}".format(mv[RX],mv[RY]))
                 # No keys pressed
-                sx,sy,sw = move(mv[RX],mv[RY],0,sx,sy,sw)
-                time.sleep(0.1)
+                move(mv[RX],mv[RY],0)
+                time.sleep(0.05)
                 
             if isTranslate(mv):
                 print("Translating TX/TY : {},{}".format(mv[TX],mv[TY]))
                 keyboard.press(Keycode.LEFT_SHIFT)
-                sx,sy,sw = move(mv[TX],mv[TY],0,sx,sy,sw)
-                time.sleep(0.1)
+                time.sleep(0.05)
+                move(mv[TX],mv[TY],0)
+                time.sleep(0.05)
                 keyboard.release(Keycode.LEFT_SHIFT)
 
             if isZoom(mv):
                 print("Zoom TZ: {}".format(mv[TZ]))
                 keyboard.press(Keycode.LEFT_CONTROL)
                 time.sleep(0.05)
-                sx,sy,sw = move(0,mv[TZ],0,sx,sy,sw)
+                move(0,mv[TZ],0)
                 time.sleep(0.05)
                 keyboard.release(Keycode.LEFT_CONTROL)
 
         if shouldEndMove:
             print("Ending movement...")
             mouse.release(Mouse.MIDDLE_BUTTON)        
-            time.sleep(0.1)
+            time.sleep(0.05)
             keyboard.release_all()
-            time.sleep(0.1)
-            sx,sy,sw = resetMove(sx,sy,sw)
-            sx = 0
-            sy = 0
-            sw = 0
+            time.sleep(0.05)
             shouldEndMove = False     
 
         if isSwitch():
             activeMode = activeMode + 1
-            time.sleep(0.24)
+            time.sleep(0.25)
             return
 
 setup()
